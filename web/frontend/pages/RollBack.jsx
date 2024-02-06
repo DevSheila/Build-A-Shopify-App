@@ -1,0 +1,165 @@
+import React, { useState, useEffect } from "react";
+import {
+  Card,
+  Page,
+  Layout,
+  DataTable,
+  Thumbnail,
+  Pagination,
+  EmptyState,
+  Select,
+  TextStyle,
+  Stack,
+  Heading,
+  Button,
+  Spinner,
+} from "@shopify/polaris";
+import { TitleBar } from "@shopify/app-bridge-react";
+import { Toast } from "@shopify/app-bridge-react";
+import { useAppQuery, useAuthenticatedFetch } from "../hooks";
+
+
+export default function RollBack() {
+  const emptyToastProps = { content: null };
+  const [isLoading, setIsLoading] = useState(true);
+  const [products, setProducts] = useState([]);
+  const [toastProps, setToastProps] = useState(emptyToastProps);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [productsPerPage] = useState(20); // 20 products per page
+  const [selectedDateTime, setSelectedDateTime] = useState(null);
+  const fetch = useAuthenticatedFetch();
+
+  useEffect(() => {
+    setIsLoading(true);
+    fetchProducts(); // Fetch products when component mounts
+  }, []); // Empty dependency array to run once on mount
+
+  const toastMarkup =
+    toastProps.content  && (
+      <Toast {...toastProps} onDismiss={() => setToastProps(emptyToastProps)} />
+    );
+
+  const fetchProducts = async () => {
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/products/get-products");
+      if (response.ok) {
+        const data = await response.json();
+        console.log("got products", data.products);
+        setProducts(data.products); // Set products state with fetched data
+      } else {
+        console.error("Failed to fetch products");
+      }
+      setIsLoading(false);
+    } catch (error) {
+      console.log("error", error);
+      setIsLoading(false);
+    }
+  };
+
+  const formatDateTime = (dateTimeString) => {
+    const dateTime = new Date(dateTimeString);
+    const formattedDateTime = `${dateTime.getFullYear()}-${(dateTime.getMonth() + 1).toString().padStart(2, '0')}-${dateTime.getDate().toString().padStart(2, '0')} ${dateTime.getHours().toString().padStart(2, '0')}:${dateTime.getMinutes().toString().padStart(2, '0')}`;
+    return formattedDateTime;
+  };
+
+  // Get unique dates and times from products
+  const uniqueDateTimeOptions = [...new Set(products.map((product) => formatDateTime(product.updated_at)))].sort().reverse();
+
+  // Function to handle date and time selection
+  const handleDateTimeChange = (value) => {
+    setSelectedDateTime(value);
+    setCurrentPage(1); // Reset pagination when date/time changes
+  };
+
+// Rollback action
+const handleRollback = async () => {
+  try {
+    setIsLoading(true);
+    await rollbackProducts(selectedDateTime); // Call rollbackProducts helper
+    setToastProps({ content: "Rollback successful" });
+  } catch (error) {
+    setToastProps({ content: "Rollback failed" });
+  } finally {
+    setIsLoading(false);
+  }
+};
+
+  // Filter products based on selected date and time
+  const filteredProducts = selectedDateTime
+    ? products.filter((product) => formatDateTime(product.updated_at) === selectedDateTime)
+    : products;
+
+  // Get current products based on pagination
+  const indexOfLastProduct = currentPage * productsPerPage;
+  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+  const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
+
+  // Change page
+  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+
+  const rows = currentProducts.map((product, index) => [
+    index + 1 + indexOfFirstProduct, // Serial number
+    product.image ? <Thumbnail source={product.image.src} alt={product.title} /> : null, // Check if image exists
+    product.title,
+    `KES ${product.variants[0].price}`,
+    formatDateTime(product.updated_at),
+  ]);
+
+  return (
+    <Page>
+      <TitleBar title="RollBack" primaryAction={null} />
+      <Layout>
+        <Layout.Section>
+          {toastMarkup}
+          {isLoading ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "300px" }}>
+              <Spinner accessibilityLabel="Loading" size="large" color="teal" />
+              <p>Please wait a moment ...</p>
+            </div>
+            ) : (
+              <>
+          <Card title="Select Date and Time" sectioned>
+            <Stack spacing="tight">
+              <Select
+                options={uniqueDateTimeOptions.map((dateTime) => ({ label: dateTime, value: dateTime }))}
+                onChange={handleDateTimeChange}
+                value={selectedDateTime}
+              />
+              <Button onClick={handleRollback} primary>Rollback</Button>
+            </Stack>
+          </Card>
+          {products.length > 0 && (
+            <Card title="Product Table">
+              <DataTable
+                columnContentTypes={["numeric", "text", "text", "text", "text"]}
+                headings={["#", "Image", "Title",  "Price", "Update Date"]}
+                rows={rows}
+              />
+              <Pagination
+                hasPrevious={currentPage !== 1}
+                hasNext={indexOfLastProduct < filteredProducts.length}
+                onPrevious={() => paginate(currentPage - 1)}
+                onNext={() => paginate(currentPage + 1)}
+              />
+            </Card>
+          )}
+          {products.length <= 0 && (
+            <Card sectioned>
+              <EmptyState
+                heading="There is no sync history for your store"
+                // action={{ content: "Add transfer" }}
+                image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+              >
+                <p>Run the sync.</p>
+              </EmptyState>
+            </Card>
+          )}
+
+          </>
+            )}
+        </Layout.Section>
+      </Layout>
+    </Page>
+  );
+}
