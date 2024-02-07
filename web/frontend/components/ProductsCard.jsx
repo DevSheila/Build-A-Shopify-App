@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState,useEffect } from "react";
 import {
   Card,
   Heading,
@@ -35,9 +35,26 @@ export function ProductsCard() {
     },
   });
 
+  useEffect(() => {
+    // Get store info on component mount
+    getStoreDomain();
+  }, []); // Empty dependency array ensures this effect runs only once on mount
+
+
   const toastMarkup = toastProps.content && !isRefetchingCount && (
     <Toast {...toastProps} onDismiss={() => setToastProps(emptyToastProps)} />
   );
+
+
+  //get store domain
+  const getStoreDomain = async () => {
+    try{
+    const response = await fetch("/api/store/get");
+    }catch(error){
+      console.log("get store domain error",error);
+    }
+  
+  };
 
   const handlePopulate = async () => {
     setIsLoading(true);

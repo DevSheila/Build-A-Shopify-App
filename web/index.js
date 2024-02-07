@@ -13,6 +13,7 @@ import redirectToAuth from "./helpers/redirect-to-auth.js";
 import { BillingInterval } from "./helpers/ensure-billing.js";
 import { AppInstallations } from "./app_installations.js";
 import fetchProducts from "./helpers/fetch-products.js";
+import getStoreInfo from "./helpers/get-store-info.js";
 import rollbackProducts from "./helpers/rollback-products.js";
 
 import firebaseAdmin from "firebase-admin";
@@ -21,7 +22,8 @@ import serviceAccount from "./serviceAccountKey.json" assert { type: "json" };
 import configData from "./config.json" assert { type: "json" };
 
 // Access configuration variables
-const businessCode =configData.BUSINESS_CODE;
+let businessCode ;
+let storeDomain;
 
 const USE_ONLINE_TOKENS = false;
 
@@ -65,9 +67,10 @@ firebaseAdmin.initializeApp({
   credential: firebaseAdmin.credential.cert(serviceAccount),
   databaseURL: 'https://uzapoint-sync-default-rtdb.firebaseio.com/',
 });
-// Firebase Realtime Database Reference
-const database = firebaseAdmin.database();
-const businessDataRef = database.ref(businessCode);
+
+// Export Firebase Realtime Database Reference
+export const firebaseDatabase = firebaseAdmin.database();
+let businessDataRef;
 
 // The transactions with Shopify will always be marked as test transactions, unless NODE_ENV is production.
 // See the ensureBilling helper to learn more about billing in this template.
@@ -137,6 +140,22 @@ export async function createServer(
     res.status(200).send({products})
   })
 
+
+
+  app.get('/api/store/get', async (req, res) => {
+
+    try{
+      const session = await Shopify.Utils.loadCurrentSession(req, res, app.get('use-online-tokens'))
+      storeDomain = await getStoreInfo(session)
+  
+      res.status(200).send({storeDomain})
+    }catch(error){
+
+      res.status(200).send(`Error${error.message}`);
+    }
+   
+  })
+
   app.get("/api/products/count", async (req, res) => {
     const session = await Shopify.Utils.loadCurrentSession(
       req,
@@ -152,34 +171,6 @@ export async function createServer(
   });
 
 
-  // app.get("/api/products/create", async (req, res) => {
-  //   const session = await Shopify.Utils.loadCurrentSession(
-  //     req,
-  //     res,
-  //     app.get("use-online-tokens")
-  //   );
-  //   try {
-
-  //     const productList= await productCreator(session);
-      
-  //     for (const product of productList) {
-  //           // Save form data to Firebase Realtime Database
-  //       businessDataRef.push(product)
-  //       .then(() => {
-  //       })
-  //       .catch((error) => {
-  //         console.error('Error saving form data:', error);
-  //         // return res.status(500).send('Internal server error');
-  //       });
-  //     }
-  //     console.log("productList") 
-  //     return res.status(200).json({ products: productList });
-  //   } catch (e) {
-  //     console.log(`error ${e}`);
-  //     return res.status(500).json({ error: e });
-  //   }
-  // });
-
   app.get("/api/products/create", async (req, res) => {
     try {
       const session = await Shopify.Utils.loadCurrentSession(
@@ -190,15 +181,18 @@ export async function createServer(
   
       const productList = await productCreator(session);
   
-      for (const product of productList) {
-        // Save product data to Firebase Realtime Database
-        try {
-          await businessDataRef.push(product);
-        } catch (error) {
-          console.error('Error saving form data:', error);
-          // Log the error but continue with product creation
-        }
-      }
+      // for (const product of productList) {
+      //   // Save product data to Firebase Realtime Database
+      //   try {
+      //     storeDomain = await getStoreInfo(session);
+          // businessCode=configData[storeDomain];
+      //     businessDataRef = firebaseDatabase.ref(businessCode);
+      //     await businessDataRef.push(product);
+      //   } catch (error) {
+      //     console.error('Error saving form data:', error);
+      //     // Log the error but continue with product creation
+      //   }
+      // }
 
       console.log("productList:");
       // return res.status(200).json({ products: productList });
@@ -224,19 +218,28 @@ export async function createServer(
  // Endpoint to receive form data from Shopify app frontend
 
   // Define endpoint to get products from Firebase
-app.get('/api/products/get-products', (req, res) => {
-  businessDataRef.once('value', (snapshot) => {
-    const products = snapshot.val();
-    if (products) {
-      const productList = Object.values(products);
-      res.status(200).json({ products: productList });
-    } else {
-      res.status(404).json({ error: 'No products found in Firebase' });
-    }
-  }, (errorObject) => {
-    res.status(500).json({ error: 'Failed to fetch products from Firebase', details: errorObject });
+
+  app.get('/api/products/get-products', async (req, res) => {
+    const session = await Shopify.Utils.loadCurrentSession(req,res, app.get("use-online-tokens"));
+
+    storeDomain = await getStoreInfo(session);
+    
+    businessCode=configData[storeDomain];
+
+    businessDataRef = firebaseDatabase.ref(businessCode);
+
+    businessDataRef.once('value', (snapshot) => {
+      const products = snapshot.val();
+      if (products) {
+        const productList = Object.values(products);
+        res.status(200).json({ products: productList });
+      } else {
+        res.status(404).json({ error: 'No products found in Firebase' });
+      }
+    }, (errorObject) => {
+      res.status(500).json({ error: 'Failed to fetch products from Firebase', details: errorObject });
+    });
   });
-});
     // Define endpoint for rollback
   app.post("/api/products/rollback", async (req, res) => {
     try {

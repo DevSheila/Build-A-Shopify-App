@@ -1,14 +1,22 @@
 import { Shopify, DataType } from "@shopify/shopify-api";
 import axios from "axios";
 import configData from "../config.json" assert { type: "json" };
+import getStoreInfo from "./get-store-info.js";
+import admin from "firebase-admin";
+import serviceAccount from "../serviceAccountKey.json" assert { type: "json" };
+
+import { firebaseDatabase } from "../index.js";
+
 
 // Access configuration variables
-const businessCode =configData.BUSINESS_CODE;
+let businessCode;
+let businessDataRef;
+
 
 let addedProducts = []; // Variable to store added products
 
 // Function to fetch all products from the external API
-async function fetchAllProducts(page) {
+async function fetchAllProducts(page,businessCode) {
   try {
     const response = await axios.post(
       `https://uzapointerp.uzahost.com/api/upecommerce/single-vendor/v1/all-products?business_code=${businessCode}&page=${page}`
@@ -72,6 +80,7 @@ async function getOrCreateCollection(client, collectionTitle) {
     throw error;
   }
 }
+
 
 // Function to create or retrieve a collection in Shopify
 async function getOrCreateProductMetafield(client, product_id,product_up_code) {
@@ -156,6 +165,9 @@ export default async function productCreator(session) {
   try {
     const client = new Shopify.Clients.Rest(session.shop, session.accessToken);
 
+    let storeDomain = await getStoreInfo(session);
+    businessCode = configData[storeDomain];
+
     let currentPage = 1;
     // Check if a product with same label  already exists
     const existingProductsResponse = await client.get({
@@ -165,7 +177,7 @@ export default async function productCreator(session) {
     const existingProducts = existingProductsResponse.body.products;
 
     while (true) {
-      const results = await fetchAllProducts(currentPage);
+      const results = await fetchAllProducts(currentPage,businessCode);
       const products = results.data;
 
       console.log("currentPage", currentPage);
@@ -288,7 +300,10 @@ export default async function productCreator(session) {
             product.code
           );
          addedProducts.push(createdProduct); // Add product to variable
-
+          
+         //push created product to firebase
+         businessDataRef = firebaseDatabase.ref(businessCode);
+         await businessDataRef.push(addedProducts);
 
 
         } else {
@@ -339,6 +354,9 @@ export default async function productCreator(session) {
               const updatedProduct = updatedProductResponse.body.product;
               console.log(`Product "${product.label}" updated successfully.`);
               addedProducts.push(updatedProduct); // Add updated product to variable
+              //push updated product to firebase
+              businessDataRef = firebaseDatabase.ref(businessCode);
+              await businessDataRef.push(addedProducts);
             } catch (error) {
               console.log("throw error",error)
               throw new Error("Error updating product in Shopify: " + error.message);
@@ -352,7 +370,7 @@ export default async function productCreator(session) {
       }
       // return addedProducts;
 
-      // // Check if there are more pages
+      // Check if there are more pages
       if (results.next_url) {
         currentPage++; // Move to the next page
       } else {
