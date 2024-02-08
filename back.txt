@@ -13,7 +13,7 @@ import {
   Stack,
   Select,
   FormLayout,
-  
+  Autocomplete
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { Toast } from "@shopify/app-bridge-react";
@@ -29,7 +29,7 @@ export default function SyncHistory() {
   const [productsPerPage] = useState(20); // 5 products per page
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDateTime, setSelectedDateTime] = useState(null);
-  const [productFound, setProductFound] = useState(true); // Added state to track product not found
+  const [productNotFound, setProductNotFound] = useState(false); // Added state to track product not found
   const fetch = useAuthenticatedFetch();
 
 
@@ -67,14 +67,14 @@ export default function SyncHistory() {
 
   const handleSearch = async () => {
     setIsLoading(true);
-    setProductFound(true); // Reset product not found state
+    setProductNotFound(false); // Reset product not found state
   
     try {
       const response = await fetch(`/api/products/search?query=${encodeURIComponent(searchQuery)}`);
       if (response.ok) {
         const data = await response.json();
         if (data.products.length === 0) {
-          setProductFound(false);
+          setProductNotFound(true);
         } else {
           setProducts(data.products);
         }
@@ -139,7 +139,7 @@ export default function SyncHistory() {
             </div>
             ) : (
               <>
-                {products.length > 0 &&  productFound? ( // Conditionally render if products exist or product  found message is displayed  
+                {products.length > 0 || productNotFound ? ( // Conditionally render if products exist or product not found message is displayed  
                 
                   <Card title="Product Table" sectioned>
                     <Card title="Search Products" sectioned>
@@ -177,7 +177,7 @@ export default function SyncHistory() {
                   </Card>
                 ) : (
                   <Card sectioned>
-                    {products.length === 0 && !productFound ? ( // Empty state when no products exist
+                    {products.length === 0 && !productNotFound ? ( // Empty state when no products exist
                       <EmptyState
                         heading="There is no sync history for your store"
                         // action={{ content: "Add transfer" }}

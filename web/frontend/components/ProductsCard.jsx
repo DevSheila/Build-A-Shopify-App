@@ -50,6 +50,7 @@ export function ProductsCard() {
   const getStoreDomain = async () => {
     try{
     const response = await fetch("/api/store/get");
+    console.log("domain",response);
     }catch(error){
       console.log("get store domain error",error);
     }

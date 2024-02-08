@@ -217,8 +217,7 @@ export async function createServer(
   app.use(express.json()); // Parse JSON bodies
  // Endpoint to receive form data from Shopify app frontend
 
-  // Define endpoint to get products from Firebase
-
+  //  endpoint to get products from Firebase
   app.get('/api/products/get-products', async (req, res) => {
     const session = await Shopify.Utils.loadCurrentSession(req,res, app.get("use-online-tokens"));
 
@@ -241,7 +240,38 @@ export async function createServer(
       res.status(500).json({ error: 'Failed to fetch products from Firebase', details: errorObject });
     });
   });
-    // Define endpoint for rollback
+  //  endpoint to search products from Firebase
+  app.get('/api/products/search', async (req, res) => {
+    const { query } = req.query; // Get search query from request
+
+    try {
+      const session = await Shopify.Utils.loadCurrentSession(req, res, app.get("use-online-tokens"));
+      storeDomain = await getStoreInfo(session);
+      businessCode = configData[storeDomain];
+      businessDataRef = firebaseDatabase.ref(businessCode);
+
+      businessDataRef.once('value', (snapshot) => {
+        const products = snapshot.val();
+
+        if (products) {
+          const productList = Object.values(products);
+
+          // Perform search filtering based on query
+          const filteredProducts = productList.filter(product =>
+            product.title.toLowerCase().includes(query.toLowerCase())
+          );
+
+          res.status(200).json({ products: filteredProducts });
+        } else {
+          res.status(404).json({ error: 'No products found in Firebase' });
+        }
+      });
+    } catch (error) {
+      res.status(500).json({ error: 'Failed to search products from Firebase', details: error });
+    }
+  });
+
+    //  endpoint for rollback from firebase
   app.post("/api/products/rollback", async (req, res) => {
     try {
       const { selectedDateTime } = req.body;

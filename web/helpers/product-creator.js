@@ -365,11 +365,7 @@ export default async function productCreator(session) {
             console.log(`No changes detected. Skipping update for product "${product.label}".`);
           }
         }
-        
-
       }
-      // return addedProducts;
-
       // Check if there are more pages
       if (results.next_url) {
         currentPage++; // Move to the next page
