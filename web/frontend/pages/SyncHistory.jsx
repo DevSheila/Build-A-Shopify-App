@@ -186,11 +186,34 @@ export default function SyncHistory() {
                         <p>Run the sync.</p>
                       </EmptyState>
                     ) : (
+                      <Card title="Search Products" sectioned>
+                        <FormLayout>
+
+                          <TextField
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="Search products..."
+                            style={{ marginRight: '1rem' }}
+                          />
+
+                        <Select
+                          options={uniqueDateTimeOptions.map((dateTime) => ({ label: dateTime, value: dateTime }))}
+                          onChange={handleDateTimeChange}
+                          value={selectedDateTime}
+                          // Adjust width to fit content
+                        />
+
+                      <Button onClick={handleSearch} primary>Search</Button> 
+                      </FormLayout>
+
                       <EmptyState // Empty state when product not found
                         heading="Product not found"
+                        image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
                       >
                         <p>No products match your search. Try again.</p>
                       </EmptyState>
+                    </Card>
+             
                     )}
                   </Card>
                 )}
