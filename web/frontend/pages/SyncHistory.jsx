@@ -1,4 +1,4 @@
-import { useState,useEffect } from "react";
+import { useState,useEffect, useMemo } from "react";
 import {
   Card,
   Page,
@@ -69,14 +69,13 @@ export default function SyncHistory() {
 
     // Change page
     const paginate = (pageNumber) => setCurrentPage(pageNumber);
-  
 
     const rows = currentProducts.map((product, index) => [
         index + 1 + indexOfFirstProduct, // Serial number
         product.image ? <Thumbnail source={product.image.src} alt={product.title} /> : null, // Check if image exists
-        product.title,
-        `KES ${product.variants[0].price}`,
-        formatDateTime(product.updated_at),
+        product.title? product.title : null,
+        product.variants ? `KES ${product.variants[0].price}`: null,
+        product.updated_at?  formatDateTime(product.updated_at) : null,
       ]);
  
     return (

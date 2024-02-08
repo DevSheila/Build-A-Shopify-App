@@ -227,6 +227,7 @@ export async function createServer(
     businessCode=configData[storeDomain];
 
     businessDataRef = firebaseDatabase.ref(businessCode);
+    console.log(businessCode);
 
     businessDataRef.once('value', (snapshot) => {
       const products = snapshot.val();

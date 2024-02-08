@@ -303,7 +303,7 @@ export default async function productCreator(session) {
           
          //push created product to firebase
          businessDataRef = firebaseDatabase.ref(businessCode);
-         await businessDataRef.push(addedProducts);
+         await businessDataRef.push(createdProduct);
 
 
         } else {
