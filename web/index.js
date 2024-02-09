@@ -13,8 +13,10 @@ import redirectToAuth from "./helpers/redirect-to-auth.js";
 import { BillingInterval } from "./helpers/ensure-billing.js";
 import { AppInstallations } from "./app_installations.js";
 import fetchProducts from "./helpers/fetch-products.js";
+import fetchUpProducts from "./helpers/fetch-up-products.js";
 import getStoreInfo from "./helpers/get-store-info.js";
 import rollbackProducts from "./helpers/rollback-products.js";
+import matchProducts from "./helpers/match-products.js";
 
 import firebaseAdmin from "firebase-admin";
 import serviceAccount from "./serviceAccountKey.json" assert { type: "json" };
@@ -139,6 +141,17 @@ export async function createServer(
 
     res.status(200).send({products})
   })
+  
+
+  app.get('/api/products/up-products', async (req, res) => {
+    const session = await Shopify.Utils.loadCurrentSession(req, res, app.get('use-online-tokens'))
+
+    const products = await fetchUpProducts(session)
+
+    res.status(200).send({products})
+  })
+
+
 
 
 
@@ -180,30 +193,11 @@ export async function createServer(
       );
   
       const productList = await productCreator(session);
-  
-      // for (const product of productList) {
-      //   // Save product data to Firebase Realtime Database
-      //   try {
-      //     storeDomain = await getStoreInfo(session);
-          // businessCode=configData[storeDomain];
-      //     businessDataRef = firebaseDatabase.ref(businessCode);
-      //     await businessDataRef.push(product);
-      //   } catch (error) {
-      //     console.error('Error saving form data:', error);
-      //     // Log the error but continue with product creation
-      //   }
-      // }
-
-      console.log("productList:");
-      // return res.status(200).json({ products: productList });
-      // res.status(200).send(productList)
       const jsonContent = JSON.stringify(productList);
       res.end(jsonContent);
     } catch (e) {
       console.error(`Error in /api/products/create: ${e.message}`);
       res.end( JSON.stringify({ error: e }));
-      // return res.status(500).json({ error: e });
-
     }
   });
   
@@ -270,15 +264,42 @@ export async function createServer(
       res.status(500).json({ error: 'Failed to search products from Firebase', details: error });
     }
   });
+  
 
     //  endpoint for rollback from firebase
   app.post("/api/products/rollback", async (req, res) => {
+    const session = await Shopify.Utils.loadCurrentSession(
+      req,
+      res,
+      app.get("use-online-tokens")
+    );
+
+
     try {
-      const { selectedDateTime } = req.body;
-      await rollbackProducts(selectedDateTime); // Call rollbackProducts helper
+      const products= req.body.products;
+      await rollbackProducts(session,products); // Call rollbackProducts helper
       res.status(200).json({ message: "Rollback successful" });
     } catch (error) {
+      console.log("server rollback error",error)
       res.status(500).json({ error: "Rollback failed" });
+    }
+  });
+
+  app.post("/api/products/match-product", async (req, res) => {
+    const session = await Shopify.Utils.loadCurrentSession(
+      req,
+      res,
+      app.get("use-online-tokens")
+    );
+
+
+    try {
+      const matchedProducts= req.body.matchedProducts;
+      await matchProducts(session,matchedProducts); 
+      res.status(200).json({ message: "Product Matching Successfull" });
+    } catch (error) {
+      console.log("server product matching error",error)
+      res.status(500).json({ error: "Product Matching Failed" });
     }
   });
 

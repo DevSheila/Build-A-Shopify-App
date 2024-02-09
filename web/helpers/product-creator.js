@@ -7,7 +7,6 @@ import serviceAccount from "../serviceAccountKey.json" assert { type: "json" };
 
 import { firebaseDatabase } from "../index.js";
 
-
 // Access configuration variables
 let businessCode;
 let businessDataRef;
