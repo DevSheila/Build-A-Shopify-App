@@ -7,7 +7,6 @@ import serviceAccount from "../serviceAccountKey.json" assert { type: "json" };
 
 import { firebaseDatabase } from "../index.js";
 
-
 // Access configuration variables
 let businessCode;
 let businessDataRef;
@@ -303,7 +302,7 @@ export default async function productCreator(session) {
           
          //push created product to firebase
          businessDataRef = firebaseDatabase.ref(businessCode);
-         await businessDataRef.push(addedProducts);
+         await businessDataRef.push(createdProduct);
 
 
         } else {
@@ -365,11 +364,7 @@ export default async function productCreator(session) {
             console.log(`No changes detected. Skipping update for product "${product.label}".`);
           }
         }
-        
-
       }
-      // return addedProducts;
-
       // Check if there are more pages
       if (results.next_url) {
         currentPage++; // Move to the next page

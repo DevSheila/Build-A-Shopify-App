@@ -25,6 +25,10 @@ export default function App() {
                   destination: "/SyncHistory",
                 },
                 {
+                  label: "Product Matching",
+                  destination: "/ProductMatch",
+                },
+                {
                   label: "RollBack",
                   destination: "/RollBack",
                 },

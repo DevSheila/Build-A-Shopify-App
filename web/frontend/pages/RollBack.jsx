@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   Card,
   Page,
@@ -7,12 +7,13 @@ import {
   Thumbnail,
   Pagination,
   EmptyState,
-  Select,
-  TextStyle,
-  Stack,
-  Heading,
-  Button,
   Spinner,
+  TextField,
+  Button,
+  Stack,
+  Select,
+  FormLayout,
+  
 } from "@shopify/polaris";
 import { TitleBar } from "@shopify/app-bridge-react";
 import { Toast } from "@shopify/app-bridge-react";
@@ -25,37 +26,93 @@ export default function RollBack() {
   const [products, setProducts] = useState([]);
   const [toastProps, setToastProps] = useState(emptyToastProps);
   const [currentPage, setCurrentPage] = useState(1);
-  const [productsPerPage] = useState(20); // 20 products per page
+  const [productsPerPage] = useState(20); // 5 products per page
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedDateTime, setSelectedDateTime] = useState(null);
+  const [productFound, setProductFound] = useState(true); // Added state to track product not found
   const fetch = useAuthenticatedFetch();
+
 
   useEffect(() => {
     setIsLoading(true);
     fetchProducts(); // Fetch products when component mounts
+
   }, []); // Empty dependency array to run once on mount
 
   const toastMarkup =
-    toastProps.content  && (
+    toastProps.content && (
       <Toast {...toastProps} onDismiss={() => setToastProps(emptyToastProps)} />
     );
 
+
   const fetchProducts = async () => {
     setIsLoading(true);
-    try {
+    try{
       const response = await fetch("/api/products/get-products");
       if (response.ok) {
         const data = await response.json();
-        console.log("got products", data.products);
-        setProducts(data.products); // Set products state with fetched data
+        console.log("got products",data.products)
+        // Sort products by updated_at in reverse order
+        const sortedProducts = data.products.sort((a, b) => new Date(b.updated_at) - new Date(a.updated_at));
+        setProducts(sortedProducts); // Set products state with fetched data
       } else {
         console.error("Failed to fetch products");
       }
+    }catch(error){
+      console.log("error",error);
+    } finally {
       setIsLoading(false);
+    }
+  }
+
+  
+  // Rollback action
+  const handleRollback = async () => {
+    try {
+      setIsLoading(true);
+
+
+    for (const product of filteredProducts) {
+
+      console.log(product.title)
+      for (const image  of product.images){
+        console.log(image.src)
+      }
+
+    }
+
+
+      // Call rollbackProducts endpoint
+      const response = await fetch("/api/products/rollback", {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          "products": filteredProducts,
+        })
+        ,
+      });
+
+
+      if(response.ok){
+        setToastProps({ content: "Rollback successful" });
+
+      }else{
+        setToastProps({ content: "Rollback failed" });
+
+      }
+    
+
+
     } catch (error) {
-      console.log("error", error);
+      setToastProps({ content: "Rollback failed" });
+      console.log("frontend rollback error", error);
+    } finally {
       setIsLoading(false);
     }
   };
+
 
   const formatDateTime = (dateTimeString) => {
     const dateTime = new Date(dateTimeString);
@@ -63,103 +120,127 @@ export default function RollBack() {
     return formattedDateTime;
   };
 
+
   // Get unique dates and times from products
   const uniqueDateTimeOptions = [...new Set(products.map((product) => formatDateTime(product.updated_at)))].sort().reverse();
 
-  // Function to handle date and time selection
+     // Function to handle date and time selection
   const handleDateTimeChange = (value) => {
     setSelectedDateTime(value);
+    setProducts(filteredProducts)
     setCurrentPage(1); // Reset pagination when date/time changes
   };
 
-// Rollback action
-const handleRollback = async () => {
-  try {
-    setIsLoading(true);
-    await rollbackProducts(selectedDateTime); // Call rollbackProducts helper
-    setToastProps({ content: "Rollback successful" });
-  } catch (error) {
-    setToastProps({ content: "Rollback failed" });
-  } finally {
-    setIsLoading(false);
-  }
-};
 
-  // Filter products based on selected date and time
-  const filteredProducts = selectedDateTime
+    // Filter products based on selected date and time
+    const filteredProducts = selectedDateTime
     ? products.filter((product) => formatDateTime(product.updated_at) === selectedDateTime)
     : products;
 
-  // Get current products based on pagination
-  const indexOfLastProduct = currentPage * productsPerPage;
-  const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
-  const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
+    // Get current products
+    const indexOfLastProduct = currentPage * productsPerPage;
+    const indexOfFirstProduct = indexOfLastProduct - productsPerPage;
+    const currentProducts = filteredProducts.slice(indexOfFirstProduct, indexOfLastProduct);
 
-  // Change page
-  const paginate = (pageNumber) => setCurrentPage(pageNumber);
+    // Change page
+    const paginate = (pageNumber) => setCurrentPage(pageNumber);
 
-  const rows = currentProducts.map((product, index) => [
-    index + 1 + indexOfFirstProduct, // Serial number
-    product.image ? <Thumbnail source={product.image.src} alt={product.title} /> : null, // Check if image exists
-    product.title,
-    `KES ${product.variants[0].price}`,
-    formatDateTime(product.updated_at),
-  ]);
-
-  return (
-    <Page>
-      <TitleBar title="RollBack" primaryAction={null} />
-      <Layout>
-        <Layout.Section>
-          {toastMarkup}
-          {isLoading ? (
+    const rows = currentProducts.map((product, index) => [
+        index + 1 + indexOfFirstProduct, // Serial number
+        product.image ? <Thumbnail source={product.image.src} alt={product.title} /> : null, // Check if image exists
+        product.title? product.title : null,
+        product.variants ? `KES ${product.variants[0].price}`: null,
+        product.updated_at?  formatDateTime(product.updated_at) : null,
+      ]);
+ 
+    return (
+      <Page>
+        <TitleBar title="RollBack" primaryAction={null} />
+        <Layout>
+          <Layout.Section>
+            {toastMarkup}
+            {isLoading ? (
             <div style={{ display: "flex", alignItems: "center", justifyContent: "center", minHeight: "300px" }}>
               <Spinner accessibilityLabel="Loading" size="large" color="teal" />
               <p>Please wait a moment ...</p>
             </div>
             ) : (
               <>
-          <Card title="Select Date and Time" sectioned>
-            <Stack spacing="tight">
-              <Select
-                options={uniqueDateTimeOptions.map((dateTime) => ({ label: dateTime, value: dateTime }))}
-                onChange={handleDateTimeChange}
-                value={selectedDateTime}
-              />
-              <Button onClick={handleRollback} primary>Rollback</Button>
-            </Stack>
-          </Card>
-          {products.length > 0 && (
-            <Card title="Product Table">
-              <DataTable
-                columnContentTypes={["numeric", "text", "text", "text", "text"]}
-                headings={["#", "Image", "Title",  "Price", "Update Date"]}
-                rows={rows}
-              />
-              <Pagination
-                hasPrevious={currentPage !== 1}
-                hasNext={indexOfLastProduct < filteredProducts.length}
-                onPrevious={() => paginate(currentPage - 1)}
-                onNext={() => paginate(currentPage + 1)}
-              />
-            </Card>
-          )}
-          {products.length <= 0 && (
-            <Card sectioned>
-              <EmptyState
-                heading="There is no sync history for your store"
-                // action={{ content: "Add transfer" }}
-                image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
-              >
-                <p>Run the sync.</p>
-              </EmptyState>
-            </Card>
-          )}
+                {products.length > 0 &&  productFound? ( // Conditionally render if products exist or product  found message is displayed  
+                
+                  <Card title="Product Table" sectioned>
+                    <Card title="Search Products" sectioned>
+                        <FormLayout>
 
-          </>
+                        <Select
+                          options={uniqueDateTimeOptions.map((dateTime) => ({ label: dateTime, value: dateTime }))}
+                          onChange={handleDateTimeChange}
+                          value={selectedDateTime}
+                          // Adjust width to fit content
+                        />
+
+                      <Button onClick={handleRollback} primary>RollBack</Button> 
+                      </FormLayout>
+
+                    </Card>
+                    <DataTable
+                      columnContentTypes={["numeric", "text", "text", "text", "text"]}
+                      headings={["#", "Title", "Image", "Price", "Update Date"]}
+                      rows={rows}
+                    />
+                    <Pagination
+                      hasPrevious={currentPage !== 1}
+                      hasNext={indexOfLastProduct < products.length}
+                      onPrevious={() => paginate(currentPage - 1)}
+                      onNext={() => paginate(currentPage + 1)}
+                    />
+                  </Card>
+                ) : (
+                  <Card sectioned>
+                    {products.length === 0 && !productFound ? ( // Empty state when no products exist
+                      <EmptyState
+                        heading="There is no sync history for your store"
+                        // action={{ content: "Add transfer" }}
+                        image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                      >
+                        <p>Run the sync.</p>
+                      </EmptyState>
+                    ) : (
+                      <Card title="Search Products" sectioned>
+                        <FormLayout>
+
+                          <TextField
+                            value={searchQuery}
+                            onChange={setSearchQuery}
+                            placeholder="Search products..."
+                            style={{ marginRight: '1rem' }}
+                          />
+
+                        <Select
+                          options={uniqueDateTimeOptions.map((dateTime) => ({ label: dateTime, value: dateTime }))}
+                          onChange={handleDateTimeChange}
+                          value={selectedDateTime}
+                          // Adjust width to fit content
+                        />
+
+                      <Button onClick={handleSearch} primary>Search</Button> 
+                      </FormLayout>
+
+                      <EmptyState // Empty state when product not found
+                        heading="Product not found"
+                        image="https://cdn.shopify.com/s/files/1/0262/4071/2726/files/emptystate-files.png"
+                      >
+                        <p>No products match your search. Try again.</p>
+                      </EmptyState>
+                    </Card>
+             
+                    )}
+                  </Card>
+                )}
+              </>
             )}
-        </Layout.Section>
-      </Layout>
-    </Page>
-  );
+          </Layout.Section>
+        </Layout>
+      </Page>
+    );
 }

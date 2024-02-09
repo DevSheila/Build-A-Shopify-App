@@ -1,6 +1,5 @@
 import { Shopify, DataType } from "@shopify/shopify-api";
 
-
 export default async function getStoreInfo(session) {
   try {
     const client = new Shopify.Clients.Rest(session.shop, session.accessToken);

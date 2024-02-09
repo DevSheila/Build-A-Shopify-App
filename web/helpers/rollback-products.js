@@ -1,45 +1,53 @@
-import { Shopify } from "@shopify/shopify-api";
+import { Shopify, DataType } from "@shopify/shopify-api";
+import axios from "axios";
+import configData from "../config.json" assert { type: "json" };
+import getStoreInfo from "./get-store-info.js";
+import admin from "firebase-admin";
+import serviceAccount from "../serviceAccountKey.json" assert { type: "json" };
+import { firebaseDatabase } from "../index.js";
 
-export default async function rollbackProducts(selectedDateTime) {
-  const client = new Shopify.Clients.Rest();
-  const productsResponse = await client.get({
-    path: "products",
-    type: Shopify.DataType.JSON,
-  });
-  const products = productsResponse.body.products;
+let businessDataRef;
 
-  const productsToUpdate = products.filter(
-    (product) => new Date(product.updated_at) > new Date(selectedDateTime)
-  );
+export default async function rollbackProducts(session,products) {
+  const client = new Shopify.Clients.Rest(session.shop, session.accessToken);
+  let storeDomain = await getStoreInfo(session);
+  let businessCode = configData[storeDomain];
 
-  for (const product of productsToUpdate) {
-    await updateProduct(client, product);
+   try{
+    for (const product of products) {
+
+      const shopifyProduct = {
+        product: {
+          title: product.title,
+          product_type: product.product_type,
+          body_html: product.body_html,
+          published: true, // or false depending on your requirement
+          tags: product.tags,
+          variants: product.variants,
+          options:product.options,
+        },
+      };
+
+
+      // Update the existing product in Shopify
+      const updatedProduct = await client.put({
+        path: `products/${product.id}`,
+        type: DataType.JSON,
+        data: shopifyProduct,
+      });
+
+      //Create a sync history on firebase
+      businessDataRef = firebaseDatabase.ref(businessCode);
+      const snapshot = await businessDataRef.push(updatedProduct.body.product);
+  
   }
-}
 
-async function updateProduct(client, product) {
-  try {
-    const { id, title, product_type, body_html, tags, images } = product;
-    const updateProductPayload = {
-      product: {
-        id,
-        title,
-        product_type,
-        body_html,
-        tags,
-        images,
-      },
-    };
+   }catch(error){
+    console.log("rollback error",error);
 
-    // Update products
-    const response = await client.put({
-      path: `products/${id}`,
-      type: Shopify.DataType.JSON,
-      data: updateProductPayload,
-    });
+    throw new Error(
+      "Error rolling back products : " + error.message
+    );
+   }
 
-    return response.body.product;
-  } catch (error) {
-    throw new Error("Error updating product in Shopify: " + error.message);
-  }
 }
