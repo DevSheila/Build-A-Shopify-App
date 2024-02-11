@@ -84,6 +84,7 @@ firebaseAdmin.initializeApp({
   databaseURL: 'https://uzapoint-sync-default-rtdb.firebaseio.com/',
 });
 
+
 // Export Firebase Realtime Database Reference
 export const firebaseDatabase = firebaseAdmin.database();
 let businessDataRef;
