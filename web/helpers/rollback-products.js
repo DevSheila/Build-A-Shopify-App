@@ -3,7 +3,6 @@ import axios from "axios";
 import configData from "../config.json" assert { type: "json" };
 import getStoreInfo from "./get-store-info.js";
 import admin from "firebase-admin";
-import serviceAccount from "../serviceAccountKey.json" assert { type: "json" };
 import { firebaseDatabase } from "../index.js";
 
 let businessDataRef;

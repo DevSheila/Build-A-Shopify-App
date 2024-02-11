@@ -19,7 +19,6 @@ import rollbackProducts from "./helpers/rollback-products.js";
 import matchProducts from "./helpers/match-products.js";
 
 import firebaseAdmin from "firebase-admin";
-import serviceAccount from "./serviceAccountKey.json" assert { type: "json" };
 
 import configData from "./config.json" assert { type: "json" };
 
@@ -63,6 +62,21 @@ Shopify.Webhooks.Registry.addHandler("APP_UNINSTALLED", {
     await AppInstallations.delete(shop);
   },
 });
+
+const serviceAccount = {
+  "type": process.env.type,
+  "project_id": process.env.project_id,
+  "private_key_id": process.env.private_key_id,
+  "private_key": process.env.private_key,
+  "client_email": process.env.client_email,
+  "client_id": process.env.client_id,
+  "auth_uri": process.env.auth_uri,
+  "token_uri": process.env.token_uri,
+  "auth_provider_x509_cert_url": process.env.auth_provider_x509_cert_url,
+  "client_x509_cert_url": process.env.client_x509_cert_url,
+  "universe_domain": process.env.universe_domain
+};
+
 
 // Initialize Firebase Admin SDK
 firebaseAdmin.initializeApp({
